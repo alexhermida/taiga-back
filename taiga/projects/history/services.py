@@ -224,7 +224,7 @@ def get_excluded_fields(typename: str) -> tuple:
     """
     Get excluded and deprected fields to avoid in the diff
     """
-    return _deprecated_fields.get(typename)
+    return _deprecated_fields.get(typename, ())
 
 
 def make_diff(oldobj: FrozenObj, newobj: FrozenObj,
