@@ -117,6 +117,8 @@ class UserStoryViewSet(AssignedUsersSignalMixin, OCCResourceMixin,
                                "assigned_to",
                                "generated_from_issue")
 
+        qs = qs.prefetch_related("assigned_users")
+
         include_attachments = "include_attachments" in self.request.QUERY_PARAMS
         include_tasks = "include_tasks" in self.request.QUERY_PARAMS
 
