@@ -28,6 +28,7 @@ import pytz
 
 from unittest.mock import MagicMock, patch
 
+from django.contrib.contenttypes.models import ContentType
 from django.core.urlresolvers import reverse
 from django.utils import timezone
 
@@ -399,14 +400,22 @@ def test_send_notifications_using_services_method_for_user_stories(settings, mai
     )
 
     take_snapshot(us, user=us.owner)
-    services.send_notifications(us,
-                                history=history_create)
 
-    services.send_notifications(us,
-                                history=history_change)
 
-    services.send_notifications(us,
-                                history=history_delete)
+    ct = ContentType.objects.get_for_model(history_create)
+    services.send_notifications(us, ct.app_label, ct.model,
+                                history_create.id,
+                                history_create.type, history_create.user["pk"])
+
+    ct = ContentType.objects.get_for_model(history_change)
+    services.send_notifications(us, ct.app_label, ct.model,
+                                history_change.id,
+                                history_change.type, history_change.user["pk"])
+
+    ct = ContentType.objects.get_for_model(history_delete)
+    services.send_notifications(us, ct.app_label, ct.model,
+                                history_delete.id,
+                                history_delete.type, history_delete.user["pk"])
 
     assert models.HistoryChangeNotification.objects.count() == 3
     assert len(mail.outbox) == 0
