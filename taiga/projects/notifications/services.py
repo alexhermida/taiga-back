@@ -34,6 +34,7 @@ from taiga.base.mails import InlineCSSTemplateMail
 from taiga.front.templatetags.functions import resolve as resolve_front_url
 from taiga.projects.notifications.choices import NotifyLevel
 from taiga.projects.history.choices import HistoryType
+from taiga.projects.history.models import HistoryEntry
 from taiga.projects.history.services import (make_key_from_model_object,
                                              get_last_snapshot_for_key,
                                              get_model_from_key)
@@ -42,6 +43,8 @@ from taiga.events import events
 
 from .models import HistoryChangeNotification, Watched
 from .squashing import squash_history_entries
+
+from taiga.celery import app
 
 
 def remove_lr_cr(s):
@@ -241,20 +244,24 @@ def _make_template_mail(name: str):
     return cls()
 
 
+@app.task
 @transaction.atomic
-def send_notifications(obj, *, history):
-    if history.is_hidden:
-        return None
+def send_notifications(obj, obj_app_label, obj_model_name, history_id, history_type, history_user):
+    obj_model = apps.get_model(obj_app_label, obj_model_name)
+
+    obj = obj_model.objects.get(pk=obj)
 
     key = make_key_from_model_object(obj)
-    owner = get_user_model().objects.get(pk=history.user["pk"])
+    owner = get_user_model().objects.get(pk=history_user)
     notification, created = (HistoryChangeNotification.objects.select_for_update()
                              .get_or_create(key=key,
                                             owner=owner,
                                             project=obj.project,
-                                            history_type=history.type))
+                                            history_type=history_type))
     notification.updated_datetime = timezone.now()
     notification.save()
+
+    history = HistoryEntry.objects.get(id=history_id)
     notification.history_entries.add(history)
 
     # Get a complete list of notifiable users for current
@@ -266,7 +273,8 @@ def send_notifications(obj, *, history):
     if settings.CHANGE_NOTIFICATIONS_MIN_INTERVAL == 0:
         send_sync_notifications(notification.id)
 
-    live_notify_users = get_users_to_notify(obj, history=history, discard_users=[notification.owner], live=True)
+    live_notify_users = get_users_to_notify(obj, history=history,
+                                            discard_users=[notification.owner], live=True)
     for user in live_notify_users:
         events.emit_live_notification_for_model(obj, user, history)
 
@@ -340,7 +348,6 @@ def send_sync_notifications(notification_id):
         context["user"] = user
         context["lang"] = user.lang or settings.LANGUAGE_CODE
         email.send(user.email, context, headers=headers)
-
 
     notification.delete()
 

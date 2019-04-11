@@ -19,7 +19,9 @@
 from functools import partial
 from operator import is_not
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ObjectDoesNotExist
 
 from taiga.base import response
@@ -82,7 +84,7 @@ class WatchedResourceMixin:
             history = self.get_last_history()
 
         # If not history found, or it is empty. Do notthing.
-        if not history:
+        if not history or history.is_hidden:
             return
 
         if self._not_notify:
@@ -99,7 +101,13 @@ class WatchedResourceMixin:
 
         # Get a complete list of notifiable users for current
         # object and send the change notification to them.
-        services.send_notifications(obj, history=history)
+        ct = ContentType.objects.get_for_model(obj)
+        if settings.CELERY_ENABLED:
+            services.send_notifications.delay(obj.id, ct.app_label, ct.model, history.id,
+                                              history.type, history.user["pk"])
+        else:
+            services.send_notifications(obj.id, ct.app_label, ct.model, history.id,
+                                        history.type, history.user["pk"])
 
     def update(self, request, *args, **kwargs):
         if not hasattr(self, 'object') or not self.object:
