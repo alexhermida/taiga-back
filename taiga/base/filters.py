@@ -141,11 +141,8 @@ class FilterBackend(OrderByFilterMixin):
 
 
 class FilterModelAssignedUsers:
-    def get_assigned_users_filter(self, model, value):
-        assigned_users_ids = model.objects.order_by().filter(
-            assigned_users__in=value, id=OuterRef('pk')).values('pk')
-
-        assigned_user_filter = Q(pk__in=Subquery(assigned_users_ids))
+    def get_assigned_users_filter(self, value):
+        assigned_user_filter = Q(assigned_users__in=value)
         assigned_to_filter = Q(assigned_to__in=value)
 
         return Q(assigned_user_filter | assigned_to_filter)
@@ -466,10 +463,10 @@ class AssignedUsersFilter(FilterModelAssignedUsers, BaseRelatedFieldsFilter):
                 assigned_user_filter_none = Q(pk__in=Subquery(assigned_users_ids))
                 assigned_to_filter_none = Q(assigned_to__isnull=True)
 
-                return (self.get_assigned_users_filter(UserStoryModel, value)
+                return (Q(assigned_users__in=value)
                         | Q(assigned_user_filter_none, assigned_to_filter_none))
             else:
-                return self.get_assigned_users_filter(UserStoryModel, value)
+                return Q(assigned_users__in=value)
 
         return None
 
@@ -718,7 +715,7 @@ class UserStoriesRoleFilter(FilterModelAssignedUsers, BaseRelatedFieldsFilter):
                 if memberships:
                     user_story_model = apps.get_model("userstories", "UserStory")
                     queryset = queryset.filter(
-                        qs_method(Q(self.get_assigned_users_filter(user_story_model, memberships)))
+                        qs_method(Q(self.get_assigned_users_filter(memberships)))
                     )
 
         return FilterBackend.filter_queryset(self, request, queryset, view)
