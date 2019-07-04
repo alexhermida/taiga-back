@@ -122,6 +122,9 @@ class UserStory(OCCModelMixin, WatchedModelMixin, BlockedMixin, TaggedMixin, Due
     _importing = None
 
     class Meta:
+        indexes = [
+            models.Index(fields=['project', 'status']),
+        ]
         verbose_name = "user story"
         verbose_name_plural = "user stories"
         ordering = ["project", "backlog_order", "ref"]
