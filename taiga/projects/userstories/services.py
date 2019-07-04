@@ -318,12 +318,6 @@ def _get_userstories_statuses(project, queryset):
          SELECT DISTINCT "userstories_userstory"."status_id" "status_id",
                          "userstories_userstory"."id" "us_id"
                     FROM "userstories_userstory"
-              INNER JOIN "projects_project"
-                      ON ("userstories_userstory"."project_id" = "projects_project"."id")
-         LEFT OUTER JOIN "epics_relateduserstory"
-                      ON "userstories_userstory"."id" = "epics_relateduserstory"."user_story_id"
-         LEFT OUTER JOIN "userstories_userstory_assigned_users"
-                      ON "userstories_userstory"."id" = "userstories_userstory_assigned_users"."userstory_id"
                    WHERE {where}
             ),
              "counters" AS (
